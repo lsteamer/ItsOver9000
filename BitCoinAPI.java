@@ -13,11 +13,10 @@ public interface BitCoinAPI {
 
     @Headers("Content-Type: application/json")
 
-
     /*
-     * Getting all of the BitCoin information.
-     * Mayhaps not all the info is used, but like this
-     * only one call is needed.
+    Getting all of the BitCoin information.
+    The weight of the info is rather small so there's no point
+    Getting it in parts.
      */
     @GET("charts/market-price?timespan=all")
     Call<Feed> getData();
