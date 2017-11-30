@@ -2,12 +2,9 @@ package com.example.android.itsover9000;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.support.v7.preference.PreferenceFragmentCompat;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -64,7 +61,7 @@ public class MainActivity extends AppCompatActivity{
     private int lineColor;
 
     //Duration of the Graph
-    private int dualDayUnit;
+    private String dualDayUnit;
 
 
     @Override
@@ -92,58 +89,61 @@ public class MainActivity extends AppCompatActivity{
                 readBundleData(savedInstanceState);
         }
         //If there's no valid information from a previous state
-        if(labelBitcoin==null){
-            //Creating the retrofit object
-            Retrofit retrofit = new Retrofit.Builder()
-                    .baseUrl(BASE_URL)
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build();
+        if(labelBitcoin==null)
+            bitCoinAPICall();
+    }
 
-            //Creating the bitCoinAPI interface
-            final BitCoinAPI bitCoinAPI = retrofit.create(BitCoinAPI.class);
+    //This Method creates de retrofit object and makes the call.
+    protected void bitCoinAPICall(){
+        //Creating the retrofit object
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
 
-            //Creating a call object
-            Call<Feed> call = bitCoinAPI.getData();
+        //Creating the bitCoinAPI interface
+        final BitCoinAPI bitCoinAPI = retrofit.create(BitCoinAPI.class);
 
-            //Adding an enqueue to our call
-            call.enqueue(new Callback<Feed>() {
-                @Override
-                public void onResponse(Call<Feed> call, Response<Feed> response) {
+        //Creating a call object
+        Call<Feed> call = bitCoinAPI.getData();
 
-                    //Getting the values
-                    ArrayList<Values> valuesArrayList = response.body().getValues();
+        //Adding an enqueue to our call
+        call.enqueue(new Callback<Feed>() {
+            @Override
+            public void onResponse(Call<Feed> call, Response<Feed> response) {
 
-                    //The following line
-                    labelBitcoin = "BitCoin "+response.body().getName();
+                //Getting the values
+                ArrayList<Values> valuesArrayList = response.body().getValues();
 
-                    //Array that will whole the Y-Axis labels
-                    datesArray = new String[valuesArrayList.size()];
+                //The following line
+                labelBitcoin = "BitCoin "+response.body().getName();
 
-                    //Creating an array or Entry to hold the yValue
-                    xValue = new ArrayList<>();
+                //Array that will whole the Y-Axis labels
+                datesArray = new String[valuesArrayList.size()];
 
-                    //Cycle through the existing array
-                    for(int i=0; i<valuesArrayList.size(); i++){
-                        //If the Value is 0 we don't take it
-                        if(!((valuesArrayList.get(i).getY()).equals("0"))){
+                //Creating an array or Entry to hold the yValue
+                xValue = new ArrayList<>();
 
-                            //We add to yValue a new Entry. the New entry takes two values "i" (For now, I want the date to be shown) and a Float representation of the String with the BitCoin
-                            xValue.add(new Entry(i,Float.parseFloat(valuesArrayList.get(i).getY())));
+                //Cycle through the existing array
+                for(int i=0; i<valuesArrayList.size(); i++){
+                    //If the Value is 0 we don't take it
+                    if(!((valuesArrayList.get(i).getY()).equals("0"))){
 
-                            //Getting the Date in a readable form
-                            datesArray[i] = new SimpleDateFormat("dd/MMM/yy").format(valuesArrayList.get(i).getXData());
-                        }
+                        //We add to yValue a new Entry. the New entry takes two values "i" (For now, I want the date to be shown) and a Float representation of the String with the BitCoin
+                        xValue.add(new Entry(i,Float.parseFloat(valuesArrayList.get(i).getY())));
+
+                        //Getting the Date in a readable form
+                        datesArray[i] = new SimpleDateFormat("dd/MMM/yy").format(valuesArrayList.get(i).getXData());
                     }
-
-                    lineCreator(xValue,datesArray,labelBitcoin, lineColor);
                 }
-                @Override
-                public void onFailure(Call<Feed> call, Throwable t) {
-                    invertScreenVisibility();
-                }
-            });
+                lineCreator(xValue,datesArray,labelBitcoin, lineColor);
+            }
+            @Override
+            public void onFailure(Call<Feed> call, Throwable t) {
+                invertScreenVisibility();
+            }
+        });
 
-        }
 
     }
 
@@ -160,6 +160,11 @@ public class MainActivity extends AppCompatActivity{
     //This method receives the ArrayList<Entries> and String[] to show in the screen the correct chart
     protected void lineCreator(ArrayList<Entry> arrayListEntryValues, String[] xLabels, String label, int color){
 
+        //We adapt the span of time displayed
+        if(!dualDayUnit.equals("all_time")){
+            int dayUnits = Integer.parseInt(dualDayUnit);
+            arrayListEntryValues = new ArrayList<Entry> (arrayListEntryValues.subList(arrayListEntryValues.size()-dayUnits,arrayListEntryValues.size()));
+        }
         //Creating the single Line. Adding the yValue and a label
         LineDataSet lineDataSet = new LineDataSet(arrayListEntryValues, label);
 
@@ -167,7 +172,7 @@ public class MainActivity extends AppCompatActivity{
         lineDataSet.setDrawCircles(false);
         lineDataSet.setColor(color);
         lineDataSet.setLineWidth(3f);
-        lineDataSet.setValueTextSize(5f);
+        lineDataSet.setValueTextSize(7f);
 
         ArrayList<ILineDataSet> dataSet = new ArrayList<>();
 
@@ -181,7 +186,6 @@ public class MainActivity extends AppCompatActivity{
         lcBitCoinChart.setData(data);
 
         //Setting parameters for the new Line Chart
-        //lcBitCoinChart.setVisibleYRangeMaximum(0.1f, YAxis.AxisDependency.LEFT);
         lcBitCoinChart.setVisibleXRangeMaximum(1000);
         lcBitCoinChart.setScaleYEnabled(false);
         lcBitCoinChart.getDescription().setEnabled(false);
@@ -211,8 +215,7 @@ public class MainActivity extends AppCompatActivity{
     protected void getSharedPreferences(){
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         lineColor = Integer.parseInt(sharedPreferences.getString("pref_color_key","-65536"));
-
-
+        dualDayUnit = sharedPreferences.getString("pref_duration_key","all_time");
     }
 
     //Saving the Information to avoid Loading again.
