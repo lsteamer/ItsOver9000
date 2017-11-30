@@ -1,9 +1,12 @@
 package com.example.android.itsover9000;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.preference.PreferenceFragmentCompat;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -32,7 +35,7 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity{
 
     private static final String TAG = "MainActivity";
 
@@ -57,32 +60,38 @@ public class MainActivity extends AppCompatActivity {
     private String [] datesArray;
     private static final String STRING_ARRAY_DATES_PASS = "The array of dates for the x-value";
 
+    //Color for the line
+    private int lineColor;
+
+    //Duration of the Graph
+    private int dualDayUnit;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Getting the shared preferences
+        getSharedPreferences();
 
         //Finding the Line Chart
         lcBitCoinChart = findViewById(R.id.lcMainChart);
 
-
         //Finding the Loading indicator
         pbLoadingIndicator = findViewById(R.id.pb_loading_indicator);
 
-        //Recovering data from a previous state
+        //If there's a previous state
         if(savedInstanceState != null){
-            datesArray = savedInstanceState.getStringArray(STRING_ARRAY_DATES_PASS);
-            xValue = savedInstanceState.getParcelableArrayList(ENTRY_ARRAY_LIST_PASS);
+
+            //Only if the information is valid should we read the rest of the Bundle Data
             labelBitcoin = savedInstanceState.getString(STRING_LABEL_PASS);
-
-            //Only if the information is valid should we run the lineCreator
             if(labelBitcoin!=null)
-                lineCreator(xValue,datesArray,labelBitcoin);
 
+                //reading the Bundle data and creating the line
+                readBundleData(savedInstanceState);
         }
-        //If there's no valid information from a previous state, Run this process
+        //If there's no valid information from a previous state
         if(labelBitcoin==null){
             //Creating the retrofit object
             Retrofit retrofit = new Retrofit.Builder()
@@ -107,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
                     //The following line
                     labelBitcoin = "BitCoin "+response.body().getName();
 
-
                     //Array that will whole the Y-Axis labels
                     datesArray = new String[valuesArrayList.size()];
 
@@ -118,6 +126,7 @@ public class MainActivity extends AppCompatActivity {
                     for(int i=0; i<valuesArrayList.size(); i++){
                         //If the Value is 0 we don't take it
                         if(!((valuesArrayList.get(i).getY()).equals("0"))){
+
                             //We add to yValue a new Entry. the New entry takes two values "i" (For now, I want the date to be shown) and a Float representation of the String with the BitCoin
                             xValue.add(new Entry(i,Float.parseFloat(valuesArrayList.get(i).getY())));
 
@@ -126,9 +135,8 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
-                    lineCreator(xValue,datesArray,labelBitcoin);
+                    lineCreator(xValue,datesArray,labelBitcoin, lineColor);
                 }
-
                 @Override
                 public void onFailure(Call<Feed> call, Throwable t) {
                     invertScreenVisibility();
@@ -139,17 +147,25 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    //Reads the bundle data and Creates the line
+    protected void readBundleData(Bundle savedInstanceState){
+        labelBitcoin = savedInstanceState.getString(STRING_LABEL_PASS);
+        datesArray = savedInstanceState.getStringArray(STRING_ARRAY_DATES_PASS);
+        xValue = savedInstanceState.getParcelableArrayList(ENTRY_ARRAY_LIST_PASS);
+
+        lineCreator(xValue, datesArray, labelBitcoin, lineColor);
+
+    }
 
     //This method receives the ArrayList<Entries> and String[] to show in the screen the correct chart
-    protected void lineCreator(ArrayList<Entry> arrayListEntryValues, String[] xLabels, String label){
-
+    protected void lineCreator(ArrayList<Entry> arrayListEntryValues, String[] xLabels, String label, int color){
 
         //Creating the single Line. Adding the yValue and a label
         LineDataSet lineDataSet = new LineDataSet(arrayListEntryValues, label);
 
         //Setting parameters for the new single line
         lineDataSet.setDrawCircles(false);
-        lineDataSet.setColor(Color.RED);
+        lineDataSet.setColor(color);
         lineDataSet.setLineWidth(3f);
         lineDataSet.setValueTextSize(5f);
 
@@ -161,10 +177,8 @@ public class MainActivity extends AppCompatActivity {
         //Creating the data set
         LineData data = new LineData(dataSet);
 
-
         //setting our existing LineChart with our LineData
         lcBitCoinChart.setData(data);
-
 
         //Setting parameters for the new Line Chart
         //lcBitCoinChart.setVisibleYRangeMaximum(0.1f, YAxis.AxisDependency.LEFT);
@@ -178,8 +192,6 @@ public class MainActivity extends AppCompatActivity {
 
         //Showing the chart and hiding the Loading Bar
         invertScreenVisibility();
-
-
     }
 
     //Small method that switches between the Progress Bar and the Line Chart
@@ -191,10 +203,17 @@ public class MainActivity extends AppCompatActivity {
         else{
             lcBitCoinChart.setVisibility(View.VISIBLE);
             pbLoadingIndicator.setVisibility(View.INVISIBLE);
-
         }
     }
 
+
+    //Method that gets the share preferences
+    protected void getSharedPreferences(){
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        lineColor = Integer.parseInt(sharedPreferences.getString("pref_color_key","-65536"));
+
+
+    }
 
     //Saving the Information to avoid Loading again.
     @Override
